@@ -1,0 +1,14 @@
+# Fill with all standard ignore patterns
+
+# Ignore all .pyc files
+*.pyc
+
+# Ignore all .swp files
+*.swp
+
+# Ignore all .swo files
+*.swo
+
+# Ignore __pycache__ directories
+__pycache__
+
