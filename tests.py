@@ -129,6 +129,65 @@ class TestPoint3(unittest.TestCase):
 
         self.assertEqual(dist, p1.distance(p2))
 
+
+class TestQuaternion(unittest.TestCase):
+    def test_init(self):
+        q = Quaternion()
+        self.assertEqual(q.w, 1)
+        self.assertEqual(q.x, 0)
+        self.assertEqual(q.y, 0)
+        self.assertEqual(q.z, 0)
+
+        q = Quaternion(1, 2, 3, 4)
+        self.assertEqual(q.w, 1)
+        self.assertEqual(q.x, 2)
+        self.assertEqual(q.y, 3)
+        self.assertEqual(q.z, 4)
+
+        q1 = Quaternion.RPY(0, 0, 0)
+        self.assertEqual(q1.w, 1)
+        self.assertEqual(q1.x, 0)
+        self.assertEqual(q1.y, 0)
+        self.assertEqual(q1.z, 0)
+
+        q2 = Quaternion.RPY(0, 0, np.pi/2)
+
+        q3 = q1 * q2
+        self.assertEqual(q3, q2)
+
+        q1 = Quaternion.RPY(0, np.pi/2, -np.pi/4)
+        q2 = q1.inverse()
+        q3 = q1 *q2
+
+        rot1 = q1.getEulerAngles()
+        rot2 = q2.getEulerAngles()
+        rot3 = q3.getEulerAngles()
+
+        # Check angles near zero
+        self.assertAlmostEqual(rot3.x, 0.0)
+        self.assertAlmostEqual(rot3.y, 0.0)
+        self.assertAlmostEqual(rot3.z, 0.0)
+
+
+class TestRot3(unittest.TestCase):
+    def test_init(self):
+        rot = Rot3()
+        self.assertTrue(np.array_equal(rot, np.identity(n=3, dtype=float)))
+
+        # Use rpy classmethod to initialise Rot3 using roll, pitch, yaw
+        rot = Rot3.RPY(0, 0, 0) # Identity
+        self.assertTrue(np.array_equal(rot, np.identity(n=3, dtype=float)))
+
+        # Construct from matrix
+        rot = Rot3(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]))
+        self.assertTrue(np.array_equal(rot, np.identity(n=3, dtype=float)))
+
+        # Construct from quaternion
+        q = Quaternion.RPY(0, 0, 0)
+        rot = Rot3.Quaternion(q)
+        self.assertTrue(np.array_equal(rot, np.identity(n=3, dtype=float)))
+
+
 if __name__ == "__main__":
     print("Test geometry!")
 
