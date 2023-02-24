@@ -38,9 +38,9 @@ class TestVector(unittest.TestCase):
         self.assertEqual(vec_c[0][2], 3)
 
         vec_d = matrix_eye * vec_a.transpose()
-        self.assertEqual(vec_d.shape, (3, 3))
-        matrix_res = np.array([[1, 0, 0], [0, 2, 0], [0, 0, 3]])
-        self.assertTrue(np.array_equal(vec_d, matrix_res))
+        self.assertEqual(vec_d.shape, (3, 1))
+        vec_res = np.array([[1, 2, 3]]).transpose()
+        self.assertTrue(np.array_equal(vec_d, vec_res))
 
 
 class TestPoint3(unittest.TestCase):
@@ -144,29 +144,52 @@ class TestQuaternion(unittest.TestCase):
         self.assertEqual(q.y, 3)
         self.assertEqual(q.z, 4)
 
-        q1 = Quaternion.RPY(0, 0, 0)
+        q1 = Quaternion.RzRyRx(0, 0, 0)
         self.assertEqual(q1.w, 1)
         self.assertEqual(q1.x, 0)
         self.assertEqual(q1.y, 0)
         self.assertEqual(q1.z, 0)
 
-        q2 = Quaternion.RPY(0, 0, np.pi/2)
+    def test_normalise(self):
+        w = np.random.rand()
+        x = np.random.rand()
+        y = np.random.rand()
+        z = np.random.rand()
+        q = Quaternion(w, x, y, z)
+        q.normalise()
 
-        q3 = q1 * q2
-        self.assertEqual(q3, q2)
+        norm = np.sqrt(w**2 + x**2 + y**2 + z**2)
+        self.assertTrue(np.isclose(q.w, w / norm))
+        self.assertTrue(np.isclose(q.x, x / norm))
+        self.assertTrue(np.isclose(q.y, y / norm))
+        self.assertTrue(np.isclose(q.z, z / norm))
 
-        q1 = Quaternion.RPY(0, np.pi/2, -np.pi/4)
-        q2 = q1.inverse()
-        q3 = q1 *q2
+    def test_multiply(self):
+        q = Quaternion(np.random.rand(), np.random.rand(), np.random.rand(), np.random.rand())
+        q.normalise()
+        q_inv = q.inverse()
+        q_res = q * q_inv
 
-        rot1 = q1.getEulerAngles()
-        rot2 = q2.getEulerAngles()
-        rot3 = q3.getEulerAngles()
+        self.assertTrue(np.isclose(q_res.w, 1))
+        self.assertTrue(np.isclose(q_res.x, 0))
+        self.assertTrue(np.isclose(q_res.y, 0))
+        self.assertTrue(np.isclose(q_res.z, 0))
 
-        # Check angles near zero
-        self.assertAlmostEqual(rot3.x, 0.0)
-        self.assertAlmostEqual(rot3.y, 0.0)
-        self.assertAlmostEqual(rot3.z, 0.0)
+        q_res = q_inv * q
+        self.assertTrue(np.isclose(q_res.w, 1))
+        self.assertTrue(np.isclose(q_res.x, 0))
+        self.assertTrue(np.isclose(q_res.y, 0))
+        self.assertTrue(np.isclose(q_res.z, 0))
+
+        # Rotate a point
+        p = Point3(1, 0, 0)
+        q = Quaternion.RzRyRx(np.pi/2, 0, 0)
+        q.normalise()
+        p_rot = p.rotate(q)
+        
+        self.assertTrue(np.isclose(p_rot.x, 0))
+        self.assertTrue(np.isclose(p_rot.y, 1))
+        self.assertTrue(np.isclose(p_rot.z, 0))
 
 
 class TestRot3(unittest.TestCase):
@@ -183,9 +206,124 @@ class TestRot3(unittest.TestCase):
         self.assertTrue(np.array_equal(rot, np.identity(n=3, dtype=float)))
 
         # Construct from quaternion
-        q = Quaternion.RPY(0, 0, 0)
+        q = Quaternion.RzRyRx(0, 0, 0)
         rot = Rot3.Quaternion(q)
         self.assertTrue(np.array_equal(rot, np.identity(n=3, dtype=float)))
+
+    def test_angle_axis(self):
+        roll = np.random.rand()
+        pitch = np.random.rand()
+        yaw = np.random.rand()
+
+        rot = Rot3.RPY(roll, pitch, yaw)
+
+        self.assertTrue(np.isclose(rot.roll(), roll))
+        self.assertTrue(np.isclose(rot.pitch(), pitch))
+        self.assertTrue(np.isclose(rot.yaw(), yaw))
+
+    def test_inverse(self):
+        roll = np.random.rand()
+        pitch = np.random.rand()
+        yaw = np.random.rand()
+
+        rot = Rot3.RPY(roll, pitch, yaw)
+        rot_inv = rot.inverse()
+
+        self.assertTrue(np.array_equal(rot_inv, rot.T))
+
+        I = rot * rot_inv
+
+        # Check equal to 10 decimal places
+        self.assertTrue(I == np.identity(n=3, dtype=float))
+
+    def test_mul(self):
+        # Rotate a point
+        p = Point3(1, 0, 0)
+        rot = Rot3.RPY(np.pi/2, 0, 0)
+        p_rot = rot * p
+
+    def test_inverse(self):
+        rot = Rot3.RPY(np.pi/2, 0, 0)
+        rot_inv = rot.inverse()
+
+        self.assertTrue(np.array_equal(rot_inv, rot.T))
+        result = rot * rot_inv
+        self.assertTrue(np.array_equal(result, np.identity(n=3, dtype=float)))
+
+
+class TestPose3(unittest.TestCase):
+    def test_init(self):
+        pose = Pose3()
+        self.assertTrue(np.array_equal(pose.R, np.identity(n=3, dtype=float)))
+        self.assertTrue(np.array_equal(pose.t, np.zeros((1, 3), dtype=float)))
+
+        rot = Rot3.RPY(0, 0, 0)
+        t = Point3(0, 0, 0)
+        pose = Pose3(rot, t)
+
+        self.assertTrue(np.array_equal(pose.R, rot))
+        self.assertTrue(np.array_equal(pose.t, t))
+
+        pose2 = Pose3()
+        self.assertTrue(pose == pose2)
+
+    def test_inverse(self):
+        rot = Rot3.RPY(np.pi/2, 0, 0)
+        t = Point3(1, 0, 0)
+        pose = Pose3(rot, t)
+        pose_inv = pose.inverse()
+        result = pose * pose_inv
+
+        self.assertTrue(np.array_equal(result.R, np.identity(n=3, dtype=float)))
+
+    def test_compose(self):
+        rotA = Rot3.RPY(0, 0, 0)
+        tA = Point3(0, 0, 1)
+        poseA = Pose3(rotA, tA)
+
+        rotB = Rot3.RPY(np.pi/2, 0, 0)
+        tB = Point3(0, 0.5, 0)
+        poseB = Pose3(rotB, tB)
+
+        poseC = poseA.compose(poseB)
+        print(poseC.R.to_euler())
+        print(poseC.t)
+
+    def test_multiply(self):
+        rotA = Rot3.RPY(0, 0, 0)
+        tA = Point3(0, 0, 1)
+        poseA = Pose3(rotA, tA)
+
+        rotB = Rot3.RPY(np.pi/2, 0, 0)
+        tB = Point3(0, 0.5, 0)
+        poseB = Pose3(rotB, tB)   
+
+        poseC = poseA * poseB
+        self.assertTrue(np.array_equal(poseC.R, poseB.R))
+        self.assertTrue(poseC.t.x == poseB.t.x + poseA.t.x)
+        self.assertTrue(poseC.t.y == poseB.t.y + poseA.t.y)
+        self.assertTrue(poseC.t.z == poseB.t.z + poseA.t.z)
+
+    def test_transform(self):
+        rotA = Rot3.RPY(np.pi/4, 0, 0)
+        tA = Point3(0, 0, 1)
+        poseA = Pose3(rotA, tA)
+
+        rotB = Rot3.RPY(-3*np.pi/4, 0, 0)
+        tB = Point3(0, 1, 0)
+        poseB = Pose3(rotB, tB)
+
+        T_b_a = poseA.transform_to(poseB)
+        rot_eul = T_b_a.R.to_euler()
+        trans = T_b_a.t
+
+        self.assertTrue(np.isclose(abs(rot_eul.x), np.pi))
+        self.assertTrue(np.isclose(rot_eul.y, 0))
+        self.assertTrue(np.isclose(rot_eul.z, 0))
+
+        self.assertTrue(np.isclose(trans.x, 0))
+        self.assertTrue(np.isclose(trans.y, np.sqrt(2)))
+        self.assertTrue(np.isclose(trans.z, 0))
 
 
 if __name__ == "__main__":
