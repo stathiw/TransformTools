@@ -177,13 +177,18 @@ class Point3(Vector):
         """
         return np.sqrt(self.x ** 2 + self.y ** 2 + self.z ** 2)
 
-    def rotate(self, q):
+    def rotate(self, rot):
         """
         Rotate point by quaternion
         """
-        vector_rot = q * self * q.inverse()
-        return Point3(vector_rot.view(np.ndarray)[0][0], vector_rot.view(np.ndarray)[0][1], vector_rot.view(np.ndarray)[0][2])
-        
+        if isinstance(rot, Quaternion):
+            q_temp = rot * self
+            vector_rot = q_temp * rot.inverse()
+            return Point3(vector_rot.view(np.ndarray)[0][1], vector_rot.view(np.ndarray)[0][2], vector_rot.view(np.ndarray)[0][3])
+        elif isinstance(rot, Rot3):
+            vector_rot = rot * self
+            return Point3(vector_rot.view(np.ndarray)[0][0], vector_rot.view(np.ndarray)[0][1], vector_rot.view(np.ndarray)[0][2])
+
 
 class Quaternion(Vector):
     """
@@ -193,10 +198,13 @@ class Quaternion(Vector):
         return Vector(np.array([[w, x, y, z]], dtype=float)).view(cls)
 
     @classmethod
-    def RzRyRx(cls, roll, pitch, yaw):
+    def RzRyRx(cls, yaw, pitch, roll):
         """
         Construct Quaternion given Euler angles
         """
+        yaw = -yaw
+        pitch = -pitch
+        roll = -roll
         cr = np.cos(roll / 2)
         sr = np.sin(roll / 2)
         cp = np.cos(pitch / 2)
@@ -253,6 +261,7 @@ class Quaternion(Vector):
 
     def __mul__(self, other):
         if isinstance(other, Quaternion):
+            # Hamilton product
             return Quaternion(w=self.w * other.w - self.x * other.x - self.y * other.y - self.z * other.z,
                               x=self.w * other.x + self.x * other.w + self.y * other.z - self.z * other.y,
                               y=self.w * other.y - self.x * other.z + self.y * other.w + self.z * other.x,
@@ -260,24 +269,20 @@ class Quaternion(Vector):
         elif isinstance(other, Point3):
             return self * Quaternion(0, other.x, other.y, other.z)
         else:
-            return Quaternion(self.w * other, self.x * other, self.y * other, self.z * other)
+            return Vector(np.array([self.w * other[0], self.x * other[1], self.y * other[2], self.z * other[3]], dtype=float))
 
     def __rmul__(self, other):
-        if isinstance(other, Quaternion):
-            return Quaternion(w=self.w * other.w - self.x * other.x - self.y * other.y - self.z * other.z,
-                              x=self.w * other.x + self.x * other.w + self.y * other.z - self.z * other.y,
-                              y=self.w * other.y - self.x * other.z + self.y * other.w + self.z * other.x,
-                              z=self.w * other.z + self.x * other.y - self.y * other.x + self.z * other.w)
-        elif isinstance(other, Point3):
+        if isinstance(other, Point3):
             return Quaternion(0, other.x, other.y, other.z) * self
         else:
-            return Quaternion(self.w * other, self.x * other, self.y * other, self.z * other)
+            return Vector(np.array([self.w * other[0], self.x * other[1], self.y * other[2], self.z * other[3]], dtype=float))
 
     def inverse(self):
         """
         Returns the inverse of the quaternion
         """
-        return Quaternion(self.w, -self.x, -self.y, -self.z)
+        norm = self.norm()
+        return Quaternion(self.w/norm, -self.x/norm, -self.y/norm, -self.z/norm)
 
     def norm(self):
         """
@@ -432,7 +437,7 @@ class Rot3(np.ndarray):
         """
         Rotates a point by the rotation matrix
         """
-        rot_p = self @ point.transpose()
+        rot_p = np.dot(self.inverse(), point.transpose())
         return Point3(rot_p[0][0], rot_p[1][0], rot_p[2][0])
 
     def roll(self):
@@ -533,6 +538,10 @@ class Pose3:
     def transform_to(self, pose):
         """
         Transforms a pose to another pose
+
+        Convention:
+        - T_B_A : Transform to frame B from frame A
+        - Transform is defined as a translation followed by rotation
         """
         if isinstance(pose, Pose3):
             R_ = self.R.inverse() * pose.R
@@ -554,9 +563,22 @@ class Pose3:
     
 
 class Transform:
+    """
+    Represents a 3D transform between two frames
+    
+    Nomenclature:
+        T_B_A : Transform to frame B from frame A
+    
+    Example:
+        T_n_a = T_b_a * T_c_b * ... * T_n_n-1
+
+        PoseA which is in frame A is transformed to frame B by T_b_a
+        PoseB = T_b_a * PoseA
+    """
+
     def __init__(self, from_frame: str, to_frame: str, t=Point3(), R=Quaternion()):
-        self.from_frame = from_frame
         self.to_frame = to_frame
+        self.from_frame = from_frame
         self.t = t
         self.R = R
 

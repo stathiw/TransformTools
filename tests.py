@@ -129,6 +129,30 @@ class TestPoint3(unittest.TestCase):
 
         self.assertEqual(dist, p1.distance(p2))
 
+    def test_rotate(self):
+        p = Point3(1, 0, 0)
+
+        # Rotate using a quaternion
+        q1 = Quaternion.RzRyRx(np.pi/2, 0, 0)
+        q1.normalise()
+        p1 = p.rotate(q1)
+        self.assertTrue(np.isclose(p1.x, 0))
+        self.assertTrue(np.isclose(p1.y, -1))
+        self.assertTrue(np.isclose(p1.z, 0))
+       
+        # Rotate using a rotation matrix
+        rot = Rot3.RPY(0, 0, -np.pi/2)
+        p2 = p.rotate(rot)
+
+        self.assertTrue(np.isclose(p2.x, 0))
+        self.assertTrue(np.isclose(p2.y, 1))
+        self.assertTrue(np.isclose(p2.z, 0))
+
+        # Rotate back
+        p3 = p2.rotate(rot.inverse())
+        self.assertTrue(np.isclose(p3.x, 1))
+        self.assertTrue(np.isclose(p3.y, 0))
+        self.assertTrue(np.isclose(p3.z, 0))
 
 class TestQuaternion(unittest.TestCase):
     def test_init(self):
@@ -186,9 +210,9 @@ class TestQuaternion(unittest.TestCase):
         q = Quaternion.RzRyRx(np.pi/2, 0, 0)
         q.normalise()
         p_rot = p.rotate(q)
-        
+       
         self.assertTrue(np.isclose(p_rot.x, 0))
-        self.assertTrue(np.isclose(p_rot.y, 1))
+        self.assertTrue(np.isclose(p_rot.y, -1))
         self.assertTrue(np.isclose(p_rot.z, 0))
 
 
@@ -250,6 +274,18 @@ class TestRot3(unittest.TestCase):
         result = rot * rot_inv
         self.assertTrue(np.array_equal(result, np.identity(n=3, dtype=float)))
 
+    def test_rot(self):
+        # Rotate point and then rotate back to original
+        point = Point3(np.random.rand(), np.random.rand(), np.random.rand())
+        rot = Rot3.RPY(np.random.rand(), np.random.rand(), np.random.rand())
+
+        point_rot = rot * point
+        point_orig = rot.inverse() * point_rot
+
+        self.assertTrue(np.isclose(point.x, point_orig.x))
+        self.assertTrue(np.isclose(point.y, point_orig.y))
+        self.assertTrue(np.isclose(point.z, point_orig.z))
+
 
 class TestPose3(unittest.TestCase):
     def test_init(self):
@@ -286,8 +322,6 @@ class TestPose3(unittest.TestCase):
         poseB = Pose3(rotB, tB)
 
         poseC = poseA.compose(poseB)
-        print(poseC.R.to_euler())
-        print(poseC.t)
 
     def test_multiply(self):
         rotA = Rot3.RPY(0, 0, 0)
@@ -305,6 +339,9 @@ class TestPose3(unittest.TestCase):
         self.assertTrue(poseC.t.z == poseB.t.z + poseA.t.z)
 
     def test_transform(self):
+        """ 
+        Transform applies translation first then rotation
+        """
         rotA = Rot3.RPY(np.pi/4, 0, 0)
         tA = Point3(0, 0, 1)
         poseA = Pose3(rotA, tA)
@@ -322,8 +359,8 @@ class TestPose3(unittest.TestCase):
         self.assertTrue(np.isclose(rot_eul.z, 0))
 
         self.assertTrue(np.isclose(trans.x, 0))
-        self.assertTrue(np.isclose(trans.y, np.sqrt(2)))
-        self.assertTrue(np.isclose(trans.z, 0))
+        self.assertTrue(np.isclose(trans.y, 0))
+        self.assertTrue(np.isclose(trans.z, -np.sqrt(2)))
 
 
 if __name__ == "__main__":
