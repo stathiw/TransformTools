@@ -192,8 +192,8 @@ class Point3(Vector):
             vector_rot = q_temp * rot.inverse()
             return Point3(vector_rot.view(np.ndarray)[0][1], vector_rot.view(np.ndarray)[0][2], vector_rot.view(np.ndarray)[0][3])
         elif isinstance(rot, Rot3):
-            vector_rot = rot * self
-            return Point3(vector_rot.view(np.ndarray)[0][0], vector_rot.view(np.ndarray)[0][1], vector_rot.view(np.ndarray)[0][2])
+            vector_rot = np.matmul(rot.matrix(), self.transpose())
+            return Point3(vector_rot[0][0], vector_rot[1][0], vector_rot[2][0])
 
     def matrix(self):
         """
@@ -337,25 +337,21 @@ class Rot3(np.ndarray):
         return np.asarray(input_array, dtype=float).view(cls)
 
     @classmethod
-    def test_method(cls, i):
-        print("test {}".format(i))
-
-    @classmethod
     def RPY(cls, roll, pitch, yaw):
         """
         Constructs a rotation matrix from roll, pitch and yaw
         """
-        R_roll = np.array([[1, 0, 0],
+        Rx = np.array([[1, 0, 0],
                            [0, np.cos(roll), -np.sin(roll)],
                            [0, np.sin(roll), np.cos(roll)]])
-        R_pitch = np.array([[np.cos(pitch), 0, np.sin(pitch)],
+        Ry = np.array([[np.cos(pitch), 0, np.sin(pitch)],
                             [0, 1, 0],
                             [-np.sin(pitch), 0, np.cos(pitch)]])
-        R_yaw = np.array([[np.cos(yaw), -np.sin(yaw), 0],
+        Rz = np.array([[np.cos(yaw), -np.sin(yaw), 0],
                           [np.sin(yaw), np.cos(yaw), 0],
                           [0, 0, 1]])
 
-        return cls(R_yaw @ R_pitch @ R_roll)
+        return cls(Rz @ Ry @ Rx)
 
     @classmethod
     def Matrix(cls, R):
@@ -455,7 +451,7 @@ class Rot3(np.ndarray):
         """
         Rotates a point by the rotation matrix
         """
-        rot_p = np.dot(self.inverse(), point.transpose())
+        rot_p = np.matmul(self, point.transpose())
         return Point3(rot_p[0][0], rot_p[1][0], rot_p[2][0])
 
     def roll(self):
@@ -535,7 +531,7 @@ class Pose3:
         """
         R_ = self.R.inverse()
         t_ = -np.matmul(R_.matrix(), self.t.matrix()) 
-        return Pose3(R_, Point3(t_[0], t_[1], t_[2]))
+        return Pose3(R_, Point3(t_[0][0], t_[1][0], t_[2][0]))
 
     def compose(self, other):
         """
@@ -564,7 +560,7 @@ class Pose3:
         if isinstance(pose, Pose3):
             R_ = self.R.inverse() * pose.R
             t_ = pose.transform_to_point(self.t)
-            return Pose3(R_, t_)
+            return self.inverse() * pose
         else:
             print("Err: multiplying object must be of type Pose3 or Point3")
             return
@@ -578,7 +574,7 @@ class Pose3:
             return
 
         return self.R * point + self.t
-    
+
 
 class Transform:
     """
