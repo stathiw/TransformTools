@@ -195,6 +195,12 @@ class Point3(Vector):
             vector_rot = rot * self
             return Point3(vector_rot.view(np.ndarray)[0][0], vector_rot.view(np.ndarray)[0][1], vector_rot.view(np.ndarray)[0][2])
 
+    def matrix(self):
+        """
+        Returns the point as a 3x1 matrix
+        """
+        return np.array([[self.x], [self.y], [self.z]])
+
 
 class Quaternion(Vector):
     """
@@ -528,8 +534,8 @@ class Pose3:
         Returns the inverse of the pose
         """
         R_ = self.R.inverse()
-        t_ = R_ * self.t * -1
-        return Pose3(R_, t_)
+        t_ = -np.matmul(R_.matrix(), self.t.matrix()) 
+        return Pose3(R_, Point3(t_[0], t_[1], t_[2]))
 
     def compose(self, other):
         """
