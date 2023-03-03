@@ -143,9 +143,8 @@ class TestPoint3(unittest.TestCase):
         # Rotate using a rotation matrix
         rot = Rot3.RPY(0, 0, -np.pi/2)
         p2 = p.rotate(rot)
-
         self.assertTrue(np.isclose(p2.x, 0))
-        self.assertTrue(np.isclose(p2.y, 1))
+        self.assertTrue(np.isclose(p2.y, -1))
         self.assertTrue(np.isclose(p2.z, 0))
 
         # Rotate back
@@ -353,6 +352,7 @@ class TestPose3(unittest.TestCase):
         T_b_a = poseA.transform_to(poseB)
         rot_eul = T_b_a.R.to_euler()
         trans = T_b_a.t
+
 
         self.assertTrue(np.isclose(abs(rot_eul.x), np.pi))
         self.assertTrue(np.isclose(rot_eul.y, 0))
