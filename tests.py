@@ -362,6 +362,72 @@ class TestPose3(unittest.TestCase):
         self.assertTrue(np.isclose(trans.y, 0))
         self.assertTrue(np.isclose(trans.z, -np.sqrt(2)))
 
+class TransformTest(unittest.TestCase):
+    def test_init(self):
+        transform = Transform("a", "b")
+        self.assertTrue(np.array_equal(transform.R, np.identity(n=3, dtype=float)))
+        self.assertTrue(np.array_equal(transform.t, np.zeros((1, 3), dtype=float)))
+
+        rot = Rot3.RPY(0, 0, 0)
+        t = Point3(0, 0, 0)
+        transform2 = Transform("A", "B", t, rot)
+
+        self.assertTrue(np.array_equal(transform2.R, rot))
+        self.assertTrue(np.array_equal(transform2.t, t))
+
+        self.assertTrue(transform == transform2)
+
+    def test_inverse(self):
+        rot = Rot3.RPY(np.pi/2, 0, 0)
+        t = Point3(1, 0, 0)
+        transform = Transform("a", "b", t, rot)
+        transform_inv = transform.inverse()
+        result = transform * transform_inv
+
+        self.assertTrue(np.array_equal(result.matrix(), np.identity(n=4, dtype=float)))
+
+
+    def test_compose(self):
+        rotA = Rot3.RPY(0, 0, 0)
+        tA = Point3(0, 0, 1)
+        transformA = Transform("a", "b", tA, rotA)
+
+        rotB = Rot3.RPY(np.pi/2, 0, 0)
+        tB = Point3(0, 0.5, 0)
+        transformB = Transform("b", "c", tB, rotB)
+
+        transformC = transformA.compose(transformB)
+
+        self.assertTrue(np.array_equal(transformC.R, rotA * rotB))
+        self.assertTrue(np.array_equal(transformC.t, tA + rotA * tB))
+
+    def test_multiply(self):
+        rotA = Rot3.RPY(np.pi/2, 0, 0)
+        tA = Point3(0, 0, 1)
+        T_a_b = Transform("a", "b", tA, rotA)
+
+        rotA = Rot3.RPY(np.pi/2, 0, 0)
+        tA = Point3(0, 0.5, 0)
+        PoseA = Pose3(rotA, tA)
+
+        # Transform pose from frame A to frame B
+        PoseB = T_a_b * PoseA
+
+        # Apply translation then rotation
+        rotB = rotA * rotA
+        tB = Point3(0, 0, 1.5)
+        self.assertTrue(np.array_equal(PoseB.R, rotB))
+        self.assertTrue(np.isclose(PoseB.t.x, tB.x))
+        self.assertTrue(np.isclose(PoseB.t.y, tB.y))
+        self.assertTrue(np.isclose(PoseB.t.z, tB.z))
+
+        # Transform pose from frame B to frame A
+        PoseA_ = T_a_b.inverse() * PoseB
+
+        self.assertTrue(np.array_equal(PoseA_.R, PoseA.R))
+        self.assertTrue(np.isclose(PoseA_.t.x, PoseA.t.x))
+        self.assertTrue(np.isclose(PoseA_.t.y, PoseA.t.y))
+        self.assertTrue(np.isclose(PoseA_.t.z, PoseA.t.z))
 
 if __name__ == "__main__":
     print("Test geometry!")

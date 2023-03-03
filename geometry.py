@@ -89,6 +89,12 @@ class Point3(Vector):
     def __new__(cls, x=0.0, y=0.0, z=0.0):
         return Vector(np.array([[x, y, z]], dtype=float)).view(cls)
 
+    def __array_finalize__(self, obj) -> None:
+        """
+        This method is called when a new instance of Point3 is created
+        """
+        if obj is None: return
+
     @property
     def x(self):
         return self.view(np.ndarray)[0][0]
@@ -427,6 +433,12 @@ class Rot3(np.ndarray):
         # Calculate dot product
         return Rot3(arr @ self)
 
+    def matrix(self):
+        """
+        Returns the rotation matrix
+        """
+        return self
+
     def inverse(self):
         """
         Returns the inverse of the rotation matrix
@@ -567,19 +579,80 @@ class Transform:
     Represents a 3D transform between two frames
     
     Nomenclature:
-        T_B_A : Transform to frame B from frame A
+        T_A_B : Transform to frame B from frame A
     
     Example:
-        T_n_a = T_b_a * T_c_b * ... * T_n_n-1
+        T_a_n = T_a_b * T_b_c * ... * T_m_n
 
-        PoseA which is in frame A is transformed to frame B by T_b_a
-        PoseB = T_b_a * PoseA
+        PoseA which is in frame A is transformed to frame B by T_a_b
+        PoseB = T_a_b * PoseA
+        To get PoseA in frame B, we need to invert T_a_b
+        PoseA = T_a_b.inverse() * PoseB
     """
 
-    def __init__(self, from_frame: str, to_frame: str, t=Point3(), R=Quaternion()):
+    def __init__(self, from_frame: str, to_frame: str, t=Point3(), R=Rot3()):
         self.to_frame = to_frame
         self.from_frame = from_frame
         self.t = t
         self.R = R
+
+    def __str__(self):
+        return "T from {} to {}:\n{}".format(self.from_frame, self.to_frame, self.matrix())
+
+    def __eq__(self, other):
+        return self.t == other.t and self.R == other.R
+
+    def matrix(self):
+        """
+        Returns the transform as a 4x4 matrix
+        """
+        R = self.R
+        t = self.t
+        return np.array([[R[0, 0], R[0, 1], R[0, 2], t.x],
+                         [R[1, 0], R[1, 1], R[1, 2], t.y],
+                         [R[2, 0], R[2, 1], R[2, 2], t.z],
+                         [      0,       0,       0,   1]])
+
+    def compose(self, other):
+        """
+        Composes two transforms together
+        multiply 4x4 matrices
+        """
+        #return Transform(self.from_frame, other.to_frame, self.t + self.R * other.t, self.R * other.R)
+        compose = np.dot(self.matrix(), other.matrix())
+        t = compose[:3, 3]
+        return Transform(self.from_frame, other.to_frame, Point3(t[0], t[1], t[2]), Rot3(compose[:3, :3]))
+
+    def inverse(self):
+        """
+        Inverse a 4x4 matrix
+        """
+        R = self.R.matrix()
+        t = np.array([self.t.x, self.t.y, self.t.z])
+        R_ = R.T
+        t_ = -np.matmul(R_, t)
+        return Transform(self.to_frame, self.from_frame, Point3(t_[0], t_[1], t_[2]), Rot3(R_))
+
+    def __mul__(self, other):
+        if isinstance(other, Transform):
+            return self.compose(other)
+        elif isinstance(other, Pose3):
+            other_transform = np.dot(self.matrix(), other.matrix())
+            t = other_transform[:3, 3]
+            return Pose3(Rot3(other_transform[:3, :3]), Point3(t[0], t[1], t[2]))
+        else:
+            print("Err: multiplying object must be of type Transform or Point3")
+            return
+
+    def __rmul__(self, other):
+        if isinstance(other, Transform):
+            return self.compose(other)
+        elif isinstance(other, Pose3):
+            other_transform = np.dot(other.matrix(), self.matrix())
+            t = other_transform[:3, 3]
+            return Pose3(Rot3(other_transform[:3, :3]), Point3(t[0], t[1], t[2]))
+        else:
+            print("Err: multiplying object must be of type Transform or Point3")
+            return
 
     
