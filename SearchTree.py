@@ -12,6 +12,9 @@ class SearchTree:
         self.root = root
     
     def search(self, name, node=None):
+        """
+        Return the node with the given name if it exists
+        """
         if node == None:
             node = self.root
         # If current node is the one we're looking for, return it
@@ -25,11 +28,16 @@ class SearchTree:
         return None
 
     def add(self, parent_name, child_node):
+        """
+        Add a child node to frame with name parent_name
+        """
         parent_node = self.search(parent_name)
         print("Adding %s to %s" % (child_node.name, parent_node.name))
         if parent_node != None:
             child_node.parent = parent_node
             parent_node.children.append(child_node)
+        else:
+            print("Parent node %s not found" % parent_name)
 
     def get_path_to_parent(self, node, parent=None):
         """
@@ -38,17 +46,18 @@ class SearchTree:
         if parent == None:
             parent = self.root
         path = []
-        print("Find path from " + node.name + " to " + parent.name)
         while node != parent:
-            print("path at " + node.name)
             if node == None:
                 return None
             path.append(node)
             node = node.parent
+        path.append(parent)
         return path
 
     def get_common_ancestor(self, node1, node2):
-        print("Find common ancestor of " + node1.name + " and " + node2.name)
+        """
+        Return the deepest common ancestor of two nodes
+        """
         path1 = self.get_path_to_parent(node1)
         path2 = self.get_path_to_parent(node2)
         for node in path1:
@@ -64,6 +73,9 @@ class SearchTree:
         # Get distance from node1 to common ancestor
         
     def get_path(self, from_node, to_node):
+        """
+        Return a list of nodes from from_node to to_node
+        """
         # Find common ancestor
         common_ancestor = self.get_common_ancestor(from_node, to_node)
         if common_ancestor == None:
@@ -72,6 +84,8 @@ class SearchTree:
         path1 = self.get_path_to_parent(from_node, common_ancestor)
         # Get path from common ancestor to to_node
         path2 = self.get_path_to_parent(to_node, common_ancestor)
+        # Remove last element from path2 to avoid duplication of common ancestor node
+        path2.pop()
         # Reverse path2
         path2.reverse()
         # Concatenate paths
@@ -125,20 +139,15 @@ if __name__ == "__main__":
 
     path_to_G = tree.get_path_to_parent(tree.search("G"))
     path_to_E = tree.get_path_to_parent(tree.search("E"), tree.root)
-    print("Path to G:")
     
     for node in path_to_G:
         print(" " + node.name)
-    print("Path to E:")
     for node in path_to_E:
         print(" " + node.name)
 
-    """
     common_ancestor = tree.get_common_ancestor(tree.search("G"), tree.search("E"))
-    print("Common ancestor of G and E: %s" % common_ancestor.name)
 
     tf_path = tree.get_path(tree.search("G"), tree.search("F"))
     print("Path from G to F: ", end="")
     for node in tf_path:
         print(node.name)
-    """
