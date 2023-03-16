@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-from geometry_msgs.msg import *
+from geometry import *
 
 class Frame:
-    def __init__(self, name, parent=None, transform=Transform()):
+    def __init__(self, name, parent=None, transform=None):
         # Name of child frame
         self.name = name
         # Parent frame

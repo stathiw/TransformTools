@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 class Node:
-    def __init__(self, name, parent=None, val=0):
+    def __init__(self, name, parent=None, val=None):
         self.name = name
         self.parent = parent # parent node
         self.value = val
@@ -38,6 +38,25 @@ class SearchTree:
             parent_node.children.append(child_node)
         else:
             print("Parent node %s not found" % parent_name)
+
+    def lookupTransform(self, from_node, to_node):
+        # Find common ancestor
+        common_ancestor = self._get_common_ancestor(from_node, to_node)
+
+        if common_ancestor == None:
+            return None
+
+        # Get path from from_node to to_node
+        path = self.get_path(from_node, to_node)
+
+        # Get transform from from_node to to_node by multiplying all transforms along the path
+        # T_from_to = T_from_parentA * T_parentA_parentB * T_parentB_to
+        transform = np.eye(4)
+        for node in path:
+            print("Node: %s" % node.name)
+
+        return transform
+
 
     def _get_path_to_parent(self, node, parent=None):
         """
